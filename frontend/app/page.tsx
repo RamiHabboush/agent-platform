@@ -11,7 +11,7 @@ export default function Home() {
     if (!input.trim()) return;
 
     // show user message
-    setMessages((prev) => [...prev, `🧑 ${input}`]);
+    setMessages((prev) => [...prev, `${input}`]);
     setLoading(true);
 
     try {
@@ -25,10 +25,10 @@ export default function Home() {
 
       const text = await res.text();
 
-      setMessages((prev) => [...prev, `🤖 ${text}`]);
+      setMessages((prev) => [...prev, `${text}`]);
       setInput("");
     } catch {
-      setMessages((prev) => [...prev, "❌ Server error"]);
+      setMessages((prev) => [...prev, "Server error"]);
     } finally {
       setLoading(false);
     }
