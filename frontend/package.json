@@ -4,5 +4,10 @@
     "next": "latest",
     "react": "latest",
     "tailwindcss": "^3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^6.0.2"
   }
 }
