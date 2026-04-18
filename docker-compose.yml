@@ -1,28 +1,10 @@
-version: "3.9"
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/agent
+    username: postgres
+    password: postgres
 
-services:
-  postgres:
-    image: ankane/pgvector
-    environment:
-      POSTGRES_DB: ai
-      POSTGRES_USER: ai
-      POSTGRES_PASSWORD: ai
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  backend:
-    build: ./backend
-    ports:
-      - "8080:8080"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ai
-      SPRING_DATASOURCE_USERNAME: ai
-      SPRING_DATASOURCE_PASSWORD: ai
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-    depends_on:
-      - postgres
-
-volumes:
-  pgdata:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true

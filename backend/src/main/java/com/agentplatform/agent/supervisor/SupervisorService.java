@@ -1,24 +1,39 @@
 package com.agentplatform.agent.supervisor;
 
-import org.springframework.stereotype.Service;
 import com.agentplatform.agent.executor.ExecutorService;
-import com.agentplatform.llm.LLMService;
+import com.agentplatform.agent.planner.PlanStep;
+import com.agentplatform.agent.planner.PlannerService;
+import com.agentplatform.memory.MemoryService;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.function.Consumer;
 
 @Service
 public class SupervisorService {
 
-    private final LLMService llm;
-    private final ExecutorService executor;
+    private final PlannerService plannerService;
+    private final ExecutorService executorService;
+    private final MemoryService memoryService;
 
-    public SupervisorService(LLMService llm, ExecutorService executor) {
-        this.llm = llm;
-        this.executor = executor;
+    public SupervisorService(PlannerService plannerService,
+                             ExecutorService executorService,
+                             MemoryService memoryService) {
+        this.plannerService = plannerService;
+        this.executorService = executorService;
+        this.memoryService = memoryService;
     }
 
-    public String route(String input) {
-        if (input.contains("weather")) {
-            return executor.execute(input);
-        }
-        return llm.chat(input);
+    public void streamRequest(String userId, String input, Consumer<String> consumer) {
+
+        // Save user message
+        memoryService.saveMessage(userId, "User: " + input);
+        // Get memory context
+        List<String> context = memoryService.searchMemory(userId, input);        
+        String context = String.join("\n", history);
+        // Plan
+        List<PlanStep> plan = plannerService.createPlan(input, context);
+        // Execute streaming
+        executorService.executePlanStreaming(plan, context, consumer);
     }
 }
