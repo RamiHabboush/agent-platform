@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface MemoryRepository extends JpaRepository<MemoryEntry, Long> {
 
+    List<MemoryEntry> findByUserId(String userId);
+
     @Query(value = """
         SELECT * FROM memory
         WHERE user_id = :userId

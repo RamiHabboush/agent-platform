@@ -1,21 +1,18 @@
 package com.agentplatform.memory;
 
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EmbeddingService {
 
-    private final OpenAiClient openAiClient;
+    private final EmbeddingModel embeddingModel;
 
-    public EmbeddingService(OpenAiClient openAiClient) {
-        this.openAiClient = openAiClient;
+    public EmbeddingService(EmbeddingModel embeddingModel) {
+        this.embeddingModel = embeddingModel;
     }
 
     public float[] embed(String text) {
-
-        // pseudo-code depending on your OpenAI setup
-        return openAiClient.embeddings()
-                .create(text)
-                .getEmbedding();
+        return embeddingModel.embed(text);
     }
 }

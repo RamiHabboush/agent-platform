@@ -29,9 +29,10 @@ public class SupervisorService {
         // Save user message
         memoryService.saveMessage(userId, "User: " + input);
         // Get memory context
-        List<String> context = memoryService.searchMemory(userId, input);        
-        String context = String.join("\n", history);
+        List<String> memories = memoryService.searchMemory(userId, input);
+        String context = String.join("\n", memories);
         // Plan
+        plannerService.createPlan(input, context);
         List<PlanStep> plan = plannerService.createPlan(input, context);
         // Execute streaming
         executorService.executePlanStreaming(plan, context, consumer);

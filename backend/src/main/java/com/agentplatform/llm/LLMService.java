@@ -29,6 +29,6 @@ public class LlmService {
                 .user(prompt)
                 .stream()
                 .content()
-                .forEach(consumer);
+                .subscribe(consumer);
     }
 }
