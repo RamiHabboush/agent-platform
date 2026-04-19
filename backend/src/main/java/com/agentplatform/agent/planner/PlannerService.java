@@ -4,6 +4,8 @@ import com.agentplatform.agent.tool.Tool;
 import com.agentplatform.agent.tool.ToolRegistry;
 import com.agentplatform.llm.LlmService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -11,6 +13,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class PlannerService {
+
+    private static final Logger log = LoggerFactory.getLogger(PlannerService.class);
 
     private final LlmService llmService;
     private final ToolRegistry toolRegistry;
@@ -22,86 +26,104 @@ public class PlannerService {
     }
 
     public List<PlanStep> createPlan(String userInput, String context) {
-
-        // 🔥 Build dynamic tool list
-        String toolsDescription = toolRegistry.getAllTools()
-                .stream()
-                .map(tool -> "- " + tool.getName() + ": " + tool.getDescription())
-                .collect(Collectors.joining("\n"));
-
-        // 🔥 Strong prompt
-        String prompt = """
-You are an AI agent.
-
-You can:
-- Answer questions directly
-- Use tools when needed
-
-Available tools:
-%s
-
-Context (previous conversation):
-%s
-
-User input:
-%s
-
-Instructions:
-- Decide the BEST next action
-- Use a tool ONLY if necessary
-- If using a tool, extract the correct input
-
-Response format (STRICT JSON ONLY):
-
-If using tool:
-{
-  "type": "tool",
-  "tool": "tool_name",
-  "input": "input_for_tool"
-}
-
-If answering directly:
-{
-  "type": "llm",
-  "input": "final answer or refined question"
-}
-
-DO NOT return anything except JSON.
-""".formatted(toolsDescription, context, userInput);
-
+        log.info("[Planner] Creating plan for input: {}", userInput);
+        String toolsDescription = buildToolDescriptions();
+        String prompt = buildPrompt(userInput, context, toolsDescription);
         String response = llmService.callLLM(prompt);
-
+        log.info("[Planner] Raw LLM response: {}", response);
         try {
             AgentDecision decision = objectMapper.readValue(response, AgentDecision.class);
+            return buildPlanFromDecision(decision);
+        } catch (Exception e) {
+            log.error("[Planner] Failed to parse LLM response. Falling back.", e);
+            return fallbackPlan(userInput);
+        }
+    }
 
-            List<PlanStep> steps = new ArrayList<>();
+    // -------------------------
+    // PRIVATE METHODS
+    // -------------------------
 
-            if ("tool".equalsIgnoreCase(decision.getType())) {
+    private String buildToolDescriptions() {
+        return toolRegistry.getAllTools()
+                .stream()
+                .map(t -> "- " + t.getName() + ": " + t.getDescription())
+                .collect(Collectors.joining("\n"));
+    }
 
-                steps.add(new PlanStep(
-                        "tool",
-                        decision.getTool(),
-                        decision.getInput()
-                ));
+    private String buildPrompt(String userInput, String context, String toolsDescription) {
 
-                steps.add(new PlanStep(
-                        "llm",
-                        null,
-                        "Explain the result to the user clearly."
-                ));
+        return """ 
+        You are an AI agent.
+        You can:
+        - Answer directly
+        - Use tools when needed
 
-            } else {
+        Available tools:
+        %s
 
-                steps.add(new PlanStep(
-                        "llm",
-                        null,
-                        decision.getInput()
-                ));
-            }
+        Context:
+        %s
+
+        User input:
+        %s
+
+        Rules:
+        - Use tools ONLY if needed
+        - Extract correct tool input
+        - Otherwise answer directly
+
+        Response format (STRICT JSON ONLY):
+
+        If tool:
+        {
+        "type": "tool",
+        "tool": "tool_name",
+        "input": "input"
+        }
+
+        If direct:
+        {
+        "type": "llm",
+        "input": "final answer"
+        }
+
+        NO TEXT OUTSIDE JSON.
+        """.formatted(toolsDescription, context, userInput);
+    }
+
+    private List<PlanStep> buildPlanFromDecision(AgentDecision decision) {
+
+        List<PlanStep> steps = new ArrayList<>();
+
+        if ("tool".equalsIgnoreCase(decision.getType())) {
+
+            steps.add(new PlanStep(
+                    StepType.TOOL,
+                    decision.getTool(),
+                    decision.getInput()
+            ));
+            steps.add(new PlanStep(
+                    StepType.LLM,
+                    null,
+                    "Explain the tool result to the user clearly."
+            ));
+
+        } else {
+
+            steps.add(new PlanStep(
+                    StepType.LLM,
+                    null,
+                    decision.getInput()
+            ));
+        }
 
         return steps;
-        } catch (Exception e) {
-            return List.of( new PlanStep("llm", null, userInput));
-        }
+    }
+
+    private List<PlanStep> fallbackPlan(String userInput) {
+        return List.of(
+                new PlanStep(StepType.LLM, null, userInput)
+        );
     }
 }

@@ -1,36 +1,46 @@
 package com.agentplatform.controller;
 
 import com.agentplatform.agent.supervisor.SupervisorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @RestController
 @RequestMapping("/api/agent")
-@CrossOrigin("*")
 public class AgentController {
 
+    private static final Logger log = LoggerFactory.getLogger(AgentController.class);
+
     private final SupervisorService supervisorService;
+
+    // Thread pool for async streaming
+    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     public AgentController(SupervisorService supervisorService) {
         this.supervisorService = supervisorService;
     }
 
-    @GetMapping("/chat/stream")
-    public SseEmitter stream(@RequestParam String input) {
+    // 🔥 MAIN CHAT ENDPOINT (SSE STREAMING)
+    @GetMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamChat(@RequestParam String input,
+        @RequestParam(defaultValue = "default-user") String userId) {
 
-        String userId = "demo-user";
-
-        SseEmitter emitter = new SseEmitter(30_000L);
-
-        Executors.newFixedThreadPool(10).submit(() -> {
+        log.info("[Controller] Incoming request: {}", input);
+        SseEmitter emitter = new SseEmitter(0L); // no timeout
+        executor.execute(() -> {
             try {
 
                 supervisorService.streamRequest(userId, input, chunk -> {
                     try {
-                        emitter.send(chunk);
-                    } catch (Exception e) {
+                        emitter.send(SseEmitter.event().data(chunk));
+                    } catch (IOException e) {
+                        log.error("[Controller] SSE send failed", e);
                         emitter.completeWithError(e);
                     }
                 });
@@ -38,9 +48,7 @@ public class AgentController {
                 emitter.complete();
 
             } catch (Exception e) {
-                try {
-                    emitter.send("Error: something went wrong");
-                } catch (Exception ignored) {}
+                log.error("[Controller] Request failed", e);
                 emitter.completeWithError(e);
             }
         });
