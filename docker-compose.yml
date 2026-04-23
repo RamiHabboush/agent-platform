@@ -1,7 +1,6 @@
 version: "3.8"
 
 services:
-
   postgres:
     image: ankane/pgvector
     container_name: pgvector-db
@@ -14,6 +13,21 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend # Path to your Spring Boot project folder
+    container_name: spring-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agent
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      # Convert your "management" settings to Environment Variables here:
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,prometheus"
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: "always"
+    depends_on:
+      - postgres
 
 volumes:
   pgdata:

@@ -1,5 +1,6 @@
 package com.agentplatform.user;
 
-public class Role {
-
+public enum Role {
+    USER,
+    ADMIN
 }
