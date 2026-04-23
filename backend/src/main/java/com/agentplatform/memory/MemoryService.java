@@ -1,61 +1,59 @@
 package com.agentplatform.memory;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
+import com.agentplatform.memory.MemoryRepository;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class MemoryService {
 
-    private final MemoryRepository repository;
+    private static final Logger log = LoggerFactory.getLogger(MemoryService.class);
+
+    private final MemoryRepository memoryRepository;
     private final EmbeddingService embeddingService;
 
-    public MemoryService(MemoryRepository repository,
-                          EmbeddingService embeddingService) {
-        this.repository = repository;
+    public MemoryService(MemoryRepository memoryRepository,
+                         EmbeddingService embeddingService) {
+        this.memoryRepository = memoryRepository;
         this.embeddingService = embeddingService;
     }
 
-    // SAVE MEMORY
+    // SAVE MESSAGE
     public void saveMessage(String userId, String message) {
 
-        float[] embedding = embeddingService.embed(message);
+        try {
+            float[] embedding = embeddingService.embed(message);
 
-        MemoryEntry entry = new MemoryEntry(userId, message, embedding);
+            Memory memory = new Memory(userId, message, embedding);
 
-        repository.save(entry);
-    }
+            memoryRepository.save(memory);
 
-    // SIMPLE RETRIEVAL (we improve later with vector search)
-    public List<String> getRecentMessages(String userId) {
+            log.info("[Memory] Saved message for user {}", userId);
 
-        return repository.findByUserId(userId)
-                .stream()
-                .map(MemoryEntry::getContent)
-                .collect(Collectors.toList());
-    }
-
-    private double cosine(float[] a, float[] b) {
-        double dot = 0, normA = 0, normB = 0;
-        for (int i = 0; i < a.length; i++) {
-            dot += a[i] * b[i];
-            normA += a[i] * a[i];
-            normB += b[i] * b[i];
+        } catch (Exception e) {
+            log.error("[Memory] Save failed", e);
         }
-        return dot / (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
+    // SEARCH (RAG)
     public List<String> searchMemory(String userId, String query) {
-        float[] queryEmbedding = embeddingService.embed(query);
-        return repository.findByUserId(userId)
-                .stream()
-                .sorted((a, b) -> Double.compare(
-                        cosine(queryEmbedding, b.getEmbedding()),
-                        cosine(queryEmbedding, a.getEmbedding())
-                ))
-                .limit(5)
-                .map(MemoryEntry::getContent)
-                .collect(Collectors.toList());
+
+        try {
+            float[] queryEmbedding = embeddingService.embed(query);
+
+            List<Memory> results =
+                    memoryRepository.searchSimilar(userId, queryEmbedding);
+
+            return results.stream()
+                    .map(Memory::getContent)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("[Memory] Search failed", e);
+            return List.of();
+        }
     }
 }
