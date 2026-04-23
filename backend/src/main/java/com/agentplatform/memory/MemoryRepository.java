@@ -5,19 +5,18 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-public interface MemoryRepository extends JpaRepository<MemoryEntry, Long> {
+public interface MemoryRepository extends JpaRepository<Memory, Long> {
 
-    List<MemoryEntry> findByUserId(String userId);
+    List<Memory> findByUserId(String userId);
 
     @Query(value = """
         SELECT * FROM memory
         WHERE user_id = :userId
-        ORDER BY embedding <-> CAST(:embedding AS vector)
-        LIMIT :limit
+        ORDER BY embedding <-> : embedding
+        LIMIT 5
         """, nativeQuery = true)
-    List<MemoryEntry> findSimilar(
+    List<Memory> searchSimilar(
             @Param("userId") String userId,
-            @Param("embedding") String embedding,
-            @Param("limit") int limit
+            @Param("embedding") float[] embedding
     );
 }
