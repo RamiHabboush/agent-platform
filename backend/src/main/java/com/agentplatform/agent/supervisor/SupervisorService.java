@@ -31,6 +31,7 @@ public class SupervisorService {
     public void streamRequest(String userId, String input, Consumer<String> consumer) {
 
         String requestId = UUID.randomUUID().toString();
+        long startTime = System.currentTimeMillis();
         log.info("[{}][Supervisor] New request: {}", requestId, input);
         try {
             // 1. SAVE USER MESSAGE
@@ -58,9 +59,12 @@ public class SupervisorService {
             );
             // 5. SAVE AI RESPONSE
             memoryService.saveMessage(userId, "AI: " + fullResponse);
-            log.info("[{}][Supervisor] Request completed", requestId);
+            // 6. FINAL METRICS
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("[{}][Supervisor] Completed in {} ms", requestId, duration);
         } catch (Exception e) {
-            log.error("[{}][Supervisor] Request failed", requestId, e);
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("[{}][Supervisor] Failed after {} ms", requestId, duration, e);
             consumer.accept("\n[Error]: Something went wrong\n");
         }
     }

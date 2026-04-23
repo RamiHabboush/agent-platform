@@ -1,6 +1,5 @@
 package com.agentplatform.agent.planner;
 
-import com.agentplatform.agent.tool.Tool;
 import com.agentplatform.agent.tool.ToolRegistry;
 import com.agentplatform.llm.LlmService;
 import com.fasterxml.jackson.databind.ObjectMapper;

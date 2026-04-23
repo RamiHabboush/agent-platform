@@ -56,7 +56,10 @@ public class ExecutorService {
             return "";
         }
         try {
+            long start = System.currentTimeMillis();
             String result = tool.execute(step.getInput());
+            long duration = System.currentTimeMillis() - start;
+            log.info("[Executor] Tool {} executed in {} ms", toolName, duration);
             consumer.accept("\n[Tool Result]: " + result + "\n");
             return result;
         } catch (Exception e) {
@@ -70,8 +73,12 @@ public class ExecutorService {
     private void executeLLM(PlanStep step, String context, String lastResult, Consumer<String> consumer) {
         log.info("[Executor] Calling LLM");
         String prompt = buildPrompt(step.getInput(), context, lastResult);
-        llmService.stream(prompt, consumer);
-    }
+        long start = System.currentTimeMillis();
+        llmService.stream(prompt, chunk -> {
+            consumer.accept(chunk);
+        });
+        long duration = System.currentTimeMillis() - start;
+        log.info("[Executor] LLM streaming started ({} ms to first response)", duration);    }
     
     // PROMPT BUILDER
     private String buildPrompt(String task, String context, String lastResult) {
